@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Devices Inventory</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<style>
+*{box-sizing:border-box;font-family:Arial,Helvetica,sans-serif}
+
+body{
+  margin:0;
+  background:#0a0a0a;
+  color:#fff;
+}
+
+header{
+  background:linear-gradient(180deg,#000,#111);
+  padding:20px;
+  text-align:center;
+}
+
+header h1{
+  color:#ffd400;
+  margin-bottom:12px;
+}
+
+.controls{
+  display:flex;
+  justify-content:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.controls input{
+  width:260px;
+  padding:8px 12px;
+  background:#111;
+  border:1px solid #444;
+  color:#fff;
+  border-radius:4px;
+}
+
+.controls button{
+  background:#ffd400;
+  border:none;
+  padding:8px 14px;
+  font-weight:bold;
+  border-radius:4px;
+  cursor:pointer;
+}
+
+.form-wrapper{
+  background:#000;
+  padding:12px;
+  border-bottom:3px solid #ffd400;
+}
+
+.form-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(140px,1fr));
+  gap:8px;
+}
+
+.form-grid input,
+.form-grid select{
+  background:#111;
+  border:1px solid #444;
+  color:#fff;
+  padding:8px;
+  border-radius:4px;
+}
+
+.add-btn{
+  background:#ffd400;
+  font-weight:bold;
+  border:none;
+  cursor:pointer;
+}
+
+table{
+  width:100%;
+  border-collapse:collapse;
+}
+
+thead{
+  background:#ffd400;
+  color:#000;
+}
+
+th,td{
+  padding:10px;
+  border:1px solid #333;
+  text-align:left;
+}
+
+tbody tr:nth-child(even){
+  background:#111;
+}
+
+.status-active{color:#00ff99;font-weight:bold}
+.status-pending{color:#ffaa00;font-weight:bold}
+.status-returned{color:#00aaff;font-weight:bold}
+.status-beyond{color:#ff4444;font-weight:bold}
+
+.action-btn{
+  padding:5px 10px;
+  font-size:12px;
+  border:none;
+  border-radius:4px;
+  cursor:pointer;
+}
+
+.update-btn{background:#ffc107}
+.delete-btn{background:#ff4444;color:#fff}
+</style>
+</head>
+
+<body>
+
+<header>
+  <h1>Devices Inventory</h1>
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search by Name, Serial, Region, Receiver...">
+    <button onclick="exportCSV()">Export to CSV</button>
+  </div>
+</header>
+
+<div class="form-wrapper">
+  <div class="form-grid">
+    <input type="date" id="dateReceived">
+    <input type="text" id="name" placeholder="Name">
+    <input type="text" id="region" placeholder="Region">
+    <input type="text" id="phone" placeholder="Phone No">
+    <input type="text" id="serial" placeholder="Serial No">
+    <input type="text" id="receivedBy" placeholder="Received By">
+    <select id="status">
+      <option value="Active">Active</option>
+      <option value="Pending">Pending</option>
+      <option value="Returned">Returned</option>
+      <option value="Beyond Repairs">Beyond Repairs</option>
+    </select>
+    <input type="date" id="returnDate">
+    <button class="add-btn" onclick="addDevice()">Add Device</button>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Date Received</th>
+      <th>Name</th>
+      <th>Region</th>
+      <th>Phone No</th>
+      <th>Serial No</th>
+      <th>Received By</th>
+      <th>Status</th>
+      <th>Date Returned</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody id="tableBody"></tbody>
+</table>
+
+<script>
+/* ===== DELETE OLD DATA (ONE TIME ONLY) ===== */
+if(!localStorage.getItem("inventory_initialized")){
+  localStorage.clear();
+  localStorage.setItem("inventory_initialized","true");
+}
+
+/* ===== LOAD FROM LOCALSTORAGE ===== */
+let devices = JSON.parse(localStorage.getItem("devices")) || [];
+let lastId  = JSON.parse(localStorage.getItem("lastId")) || 1;
+
+renderTable();
+
+/* ===== SAVE ===== */
+function saveData(){
+  localStorage.setItem("devices",JSON.stringify(devices));
+  localStorage.setItem("lastId",JSON.stringify(lastId));
+}
+
+/* ===== ADD DEVICE ===== */
+function addDevice(){
+  const device = {
+    id: lastId++,
+    dateReceived: document.getElementById("dateReceived").value,
+    name: document.getElementById("name").value,
+    region: document.getElementById("region").value,
+    phone: document.getElementById("phone").value,
+    serial: document.getElementById("serial").value,
+    receivedBy: document.getElementById("receivedBy").value,
+    status: document.getElementById("status").value,
+    returnDate: document.getElementById("returnDate").value
+  };
+
+  devices.push(device);
+  saveData();
+  renderTable();
+  clearForm();
+}
+
+/* ===== RENDER TABLE ===== */
+function renderTable(){
+  const tbody=document.getElementById("tableBody");
+  tbody.innerHTML="";
+
+  devices.forEach((d,i)=>{
+    tbody.innerHTML+=`
+      <tr>
+        <td>${d.id}</td>
+        <td>${d.dateReceived}</td>
+        <td>${d.name}</td>
+        <td>${d.region}</td>
+        <td>${d.phone}</td>
+        <td>${d.serial}</td>
+        <td>${d.receivedBy}</td>
+        <td class="${statusClass(d.status)}">${d.status}</td>
+        <td>${d.returnDate || ""}</td>
+        <td>
+          <button class="action-btn update-btn" onclick="editDevice(${i})">Update</button>
+          <button class="action-btn delete-btn" onclick="deleteDevice(${i})">Delete</button>
+        </td>
+      </tr>`;
+  });
+}
+
+/* ===== STATUS COLOR ===== */
+function statusClass(status){
+  if(status==="Active") return "status-active";
+  if(status==="Pending") return "status-pending";
+  if(status==="Returned") return "status-returned";
+  return "status-beyond";
+}
+
+/* ===== DELETE ===== */
+function deleteDevice(index){
+  devices.splice(index,1);
+  saveData();
+  renderTable();
+}
+
+/* ===== UPDATE ===== */
+function editDevice(index){
+  const d=devices[index];
+
+  document.getElementById("dateReceived").value=d.dateReceived;
+  document.getElementById("name").value=d.name;
+  document.getElementById("region").value=d.region;
+  document.getElementById("phone").value=d.phone;
+  document.getElementById("serial").value=d.serial;
+  document.getElementById("receivedBy").value=d.receivedBy;
+  document.getElementById("status").value=d.status;
+  document.getElementById("returnDate").value=d.returnDate;
+
+  devices.splice(index,1);
+  saveData();
+}
+
+/* ===== CLEAR FORM ===== */
+function clearForm(){
+  document.querySelectorAll(".form-grid input").forEach(i=>i.value="");
+  document.getElementById("status").value="Active";
+}
+
+/* ===== EXPORT CSV ===== */
+function exportCSV(){
+  let csv="ID,Date Received,Name,Region,Phone,Serial,Received By,Status,Date Returned\n";
+  devices.forEach(d=>{
+    csv+=`${d.id},${d.dateReceived},${d.name},${d.region},${d.phone},${d.serial},${d.receivedBy},${d.status},${d.returnDate}\n`;
+  });
+
+  const blob=new Blob([csv],{type:"text/csv"});
+  const link=document.createElement("a");
+  link.href=URL.createObjectURL(blob);
+  link.download="devices_inventory.csv";
+  link.click();
+}
+
+/* ===== SEARCH ===== */
+document.getElementById("search").addEventListener("input",function(){
+  const value=this.value.toLowerCase();
+  document.querySelectorAll("#tableBody tr").forEach(row=>{
+    row.style.display=row.textContent.toLowerCase().includes(value)?"":"none";
+  });
+});
+</script>
+
+</body>
+</html>
