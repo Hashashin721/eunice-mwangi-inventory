@@ -286,7 +286,25 @@ document.getElementById("search").addEventListener("input",function(){
     row.style.display=row.textContent.toLowerCase().includes(value)?"":"none";
   });
 });
-</script>
+  async function submitLogin(event) {
+    event.preventDefault();
+    const email = document.getElementById("email").value;
+    const password = document.getElementById("password").value;
 
+    const res = await fetch("/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password })
+    });
+    const data = await res.json();
+    console.log(data);
+  }
+</script>
+<form onsubmit="submitLogin(event)">
+  <input id="email" type="email" required>
+  <input id="password" type="password" required>
+  <button>Login</button>
+</form>
 </body>
 </html>
+
